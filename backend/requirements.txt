@@ -1,0 +1,10 @@
+langchain
+langchain-community
+langchain-google-genai
+langchain-huggingface
+sentence-transformers
+chromadb
+python-dotenv
+fastapi
+uvicorn
+pypdf
