@@ -83,7 +83,12 @@ function App() {
   };
 
   const onFileChange = (e) => {
-    setSelectedFiles(Array.from(e.target.files));
+    const newFiles = Array.from(e.target.files);
+    setSelectedFiles(prev => {
+      const existingNames = new Set(prev.map(f => f.name));
+      const uniqueNewFiles = newFiles.filter(f => !existingNames.has(f.name));
+      return [...prev, ...uniqueNewFiles];
+    });
     setError(null);
     setSuccess(null);
   };

@@ -283,3 +283,16 @@ footer {
   .logo h1 { font-size: 2.25rem; }
   .response-area { padding: 1.25rem; }
 }
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
