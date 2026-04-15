@@ -1,24 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Send, Sparkles, Loader2, Bot, User, Upload, Shield, LogIn, FileText, CheckCircle2 } from 'lucide-react';
+import { Search, Send, Sparkles, Loader2, Bot, User, Upload, FileText, CheckCircle2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'admin'
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Admin states
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
+  // Upload states
+  const [showUploader, setShowUploader] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const fileInputRef = useRef(null);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -27,19 +25,18 @@ function App() {
     setLoading(true);
     setResponse(null);
     setError(null);
+    setSuccess(null);
 
     try {
       const res = await fetch(`${API_URL}/ask`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.detail || 'Failed to fetch response');
+        throw new Error(data.detail || 'The AI is still learning or needs documents to answer.');
       }
 
       const data = await res.json();
@@ -48,26 +45,6 @@ function App() {
       setError(err.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAdminLogin = async (e) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      const res = await fetch(`${API_URL}/admin/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: adminUsername, password: adminPassword }),
-      });
-      if (res.ok) {
-        setIsAuthenticated(true);
-        setAdminPassword('');
-      } else {
-        throw new Error('Invalid credentials');
-      }
-    } catch (err) {
-      setError(err.message);
     }
   };
 
@@ -91,16 +68,24 @@ function App() {
       });
 
       if (res.ok) {
-        setSuccess('Documents uploaded and indexed successfully!');
+        setSuccess(`${selectedFiles.length} document(s) added to knowledge base!`);
         setSelectedFiles([]);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        setTimeout(() => setShowUploader(false), 2000);
       } else {
-        throw new Error('Upload failed');
+        throw new Error('Upload failed. Please try again.');
       }
     } catch (err) {
       setError(err.message);
     } finally {
       setUploading(false);
     }
+  };
+
+  const onFileChange = (e) => {
+    setSelectedFiles(Array.from(e.target.files));
+    setError(null);
+    setSuccess(null);
   };
 
   return (
@@ -116,157 +101,145 @@ function App() {
             <Sparkles className="icon-glow" />
             <h1 className="gradient-text">Standard RAG</h1>
           </div>
-          <p className="subtitle">Intelligent Document Assistant</p>
+          <p className="subtitle">Instant Intelligence from Your Documents</p>
         </motion.div>
-
-        <nav className="nav-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('chat'); setError(null); setSuccess(null); }}
-          >
-            <Bot size={18} /> Chat
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('admin'); setError(null); setSuccess(null); }}
-          >
-            <Shield size={18} /> Admin
-          </button>
-        </nav>
       </header>
 
       <main>
-        <AnimatePresence mode="wait">
-          {activeTab === 'chat' ? (
+        {/* Document Uploader Toggle */}
+        <div className="uploader-toggle">
+          <button 
+            className={`toggle-btn ${showUploader ? 'active' : ''}`}
+            onClick={() => setShowUploader(!showUploader)}
+          >
+            {showUploader ? <ChevronUp size={18} /> : <Upload size={18} />}
+            {showUploader ? 'Close Manager' : 'Add Documents'}
+          </button>
+        </div>
+
+        {/* Upload Section */}
+        <AnimatePresence>
+          {showUploader && (
             <motion.div
-              key="chat"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
+              initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+              animate={{ height: 'auto', opacity: 1, marginBottom: '2rem' }}
+              exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+              className="upload-wrapper"
             >
-              <div className="glass-card search-container">
-                <form onSubmit={handleSearch}>
-                  <div className="input-wrapper">
-                    <Search className="search-icon" size={20} />
+              <div className="glass-card upload-card">
+                <h3>Prepare Your Knowledge Base</h3>
+                <p className="hint">Upload PDF or TXT files. They will be indexed for instant querying.</p>
+                
+                <form onSubmit={handleFileUpload}>
+                  <div 
+                    className="drop-zone"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
                     <input 
-                      type="text" 
-                      placeholder="Ask anything about the documents..." 
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      disabled={loading}
+                      type="file" 
+                      multiple 
+                      hidden 
+                      ref={fileInputRef}
+                      onChange={onFileChange}
+                      accept=".pdf,.txt"
                     />
-                    <button type="submit" className="glow-btn" disabled={loading || !query.trim()}>
-                      {loading ? <Loader2 className="animate-spin" /> : <Send size={20} />}
-                    </button>
+                    <Upload className="upload-icon" size={40} />
+                    <p>Click to select files</p>
                   </div>
-                </form>
-              </div>
 
-              {error && (
-                <div className="error-message">{error}</div>
-              )}
-
-              {(response || loading) && (
-                <div className="glass-card response-area">
-                  <div className="chat-item bot">
-                    <div className="avatar bot-avatar">
-                      <Bot size={20} />
-                    </div>
-                    <div className="message-content">
-                      <div className="message-header">AI Assistant</div>
-                      {loading ? (
-                        <div className="loading-dots">
-                          <span></span><span></span><span></span>
+                  {selectedFiles.length > 0 && (
+                    <div className="file-preview">
+                      {selectedFiles.map((file, idx) => (
+                        <div key={idx} className="file-tag">
+                          <FileText size={14} />
+                          <span>{file.name}</span>
                         </div>
-                      ) : (
-                        <p className="response-text">{response}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="admin"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              {!isAuthenticated ? (
-                <div className="glass-card admin-card">
-                  <h2>Admin Login</h2>
-                  <form onSubmit={handleAdminLogin}>
-                    <div className="form-group">
-                      <label>Username</label>
-                      <input 
-                        type="text" 
-                        value={adminUsername}
-                        onChange={(e) => setAdminUsername(e.target.value)}
-                        placeholder="Enter admin username"
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Password</label>
-                      <input 
-                        type="password" 
-                        value={adminPassword}
-                        onChange={(e) => setAdminPassword(e.target.value)}
-                        placeholder="Enter admin password"
-                        required
-                      />
-                    </div>
-                    <button type="submit" className="submit-btn flex items-center justify-center gap-2">
-                       <LogIn size={18} /> Login
-                    </button>
-                    {error && <div className="error-message" style={{ marginTop: '1.5rem' }}>{error}</div>}
-                  </form>
-                </div>
-              ) : (
-                <div className="glass-card admin-card">
-                  <h2>Knowledge Base Manager</h2>
-                  {success && (
-                    <div className="success-message flex items-center justify-center gap-2">
-                      <CheckCircle2 size={18} /> {success}
+                      ))}
                     </div>
                   )}
-                  {error && <div className="error-message">{error}</div>}
-                  
-                  <form onSubmit={handleFileUpload}>
-                    <label className="upload-zone">
-                      <input 
-                        type="file" 
-                        multiple 
-                        hidden 
-                        onChange={(e) => setSelectedFiles(Array.from(e.target.files))}
-                        accept=".pdf,.txt"
-                      />
-                      <Upload className="upload-icon mx-auto" size={48} />
-                      <p>Click to select multiple PDF or TXT files</p>
-                      <p className="text-sm opacity-60">Max 10MB per file</p>
-                    </label>
 
-                    {selectedFiles.length > 0 && (
-                      <ul className="file-list">
-                        {selectedFiles.map((file, idx) => (
-                          <li key={idx} className="file-item">
-                            <FileText size={16} /> {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                  <button 
+                    type="submit" 
+                    className="glow-btn full-width"
+                    disabled={uploading || selectedFiles.length === 0}
+                  >
+                    {uploading ? <Loader2 className="animate-spin" /> : 'Index Documents'}
+                  </button>
+                </form>
 
-                    <button 
-                      type="submit" 
-                      className="submit-btn" 
-                      disabled={uploading || selectedFiles.length === 0}
-                    >
-                      {uploading ? <Loader2 className="animate-spin" /> : 'Process & Index Documents'}
-                    </button>
-                  </form>
+                {success && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="success-pill">
+                    <CheckCircle2 size={16} /> {success}
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Chat Section */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          className="glass-card search-container"
+          style={{ zIndex: 10 }}
+        >
+          <form onSubmit={handleSearch}>
+            <div className="input-wrapper">
+              <Search className="search-icon" size={20} />
+              <input 
+                type="text" 
+                placeholder="What would you like to know?" 
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                disabled={loading}
+              />
+              <button type="submit" className="glow-btn" disabled={loading || !query.trim()}>
+                {loading ? <Loader2 className="animate-spin" /> : <Send size={20} />}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+
+        {/* Error/Status Display */}
+        <AnimatePresence>
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="error-pill"
+            >
+              <AlertCircle size={16} /> {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Response Display */}
+        <AnimatePresence>
+          {(response || loading) && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="glass-card response-area"
+            >
+              <div className="chat-item">
+                <div className="avatar bot-avatar">
+                  <Bot size={20} />
                 </div>
-              )}
+                <div className="message-content">
+                  <div className="message-header">AI Assistant</div>
+                  {loading ? (
+                    <div className="loading-dots">
+                      <span></span><span></span><span></span>
+                    </div>
+                  ) : (
+                    <p className="response-text">{response}</p>
+                  )}
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

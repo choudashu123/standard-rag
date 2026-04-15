@@ -50,17 +50,16 @@ def initialize_rag():
     print("Initialising RAG chain...")
     
     # Path setup (relative to project root)
-    data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
-    persist_dir = os.path.join(os.path.dirname(__file__), "..", "chroma_db")
+    project_root = os.path.join(os.path.dirname(__file__), "..")
+    data_dir = os.path.join(project_root, "data")
+    persist_dir = os.path.join(project_root, "chroma_db")
     
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-        print(f"Created data directory at {data_dir}")
+    # Ensure directories exist
+    os.makedirs(data_dir, exist_ok=True)
+    os.makedirs(os.path.join(data_dir, "uploads"), exist_ok=True)
 
-    # Load all documents from the data directory
-    # Using DirectoryLoader to handle multiple file types
+    # Load documents recursively (including uploads)
     text_loader_kwargs={'encoding': 'utf-8'}
-    
     loaders = [
         DirectoryLoader(data_dir, glob="**/*.txt", loader_cls=TextLoader, loader_kwargs=text_loader_kwargs),
         DirectoryLoader(data_dir, glob="**/*.pdf", loader_cls=PyPDFLoader)
@@ -68,10 +67,13 @@ def initialize_rag():
     
     docs = []
     for loader in loaders:
-        docs.extend(loader.load())
+        try:
+            docs.extend(loader.load())
+        except Exception as e:
+            print(f"Error loading documents from {loader}: {e}")
 
     if not docs:
-        print("No documents found to index.")
+        print("No documents found yet. RAG system is ready but waiting for uploads.")
         rag_chain = None
         return
 
@@ -80,7 +82,10 @@ def initialize_rag():
 
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
-    # If the directory exists, Chroma will load it. If not, it will create it.
+    # Clear old chroma db to ensure fresh start if needed (optional)
+    # if os.path.exists(persist_dir):
+    #     shutil.rmtree(persist_dir)
+
     vectorstore = Chroma.from_documents(
         documents=splits, 
         embedding=embeddings, 
@@ -106,7 +111,7 @@ def initialize_rag():
     question_answer_chain = create_stuff_documents_chain(llm, prompt)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     rag_chain = create_retrieval_chain(retriever, question_answer_chain)
-    print("RAG chain initialised successfully.")
+    print("RAG chain initialised/updated successfully.")
 
 @app.on_event("startup")
 async def startup_event():
@@ -116,17 +121,10 @@ async def startup_event():
 async def root():
     return {"message": "RAG API is running"}
 
-@app.post("/admin/login")
-async def login(request: LoginRequest):
-    if request.username == ADMIN_USERNAME and request.password == ADMIN_PASSWORD:
-        return {"status": "success", "token": "admin-session-token"}
-    raise HTTPException(status_code=401, detail="Invalid credentials")
-
 @app.post("/admin/upload")
 async def upload_files(files: List[UploadFile] = File(...)):
     upload_dir = os.path.join(os.path.dirname(__file__), "..", "data", "uploads")
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir)
+    os.makedirs(upload_dir, exist_ok=True)
     
     saved_files = []
     for file in files:
@@ -135,7 +133,7 @@ async def upload_files(files: List[UploadFile] = File(...)):
             shutil.copyfileobj(file.file, buffer)
         saved_files.append(file.filename)
     
-    # Re-initialize RAG with new documents
+    # Re-initialize RAG to include new documents immediately
     initialize_rag()
     
     return {"status": "success", "files": saved_files}
