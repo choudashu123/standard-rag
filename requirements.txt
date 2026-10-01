@@ -1,8 +1,10 @@
 langchain
 langchain-community
 langchain-google-genai
-langchain-huggingface
-sentence-transformers
 chromadb
 python-dotenv
-langchain-experimental
+fastapi
+uvicorn
+pypdf
+python-multipart
+langchain-text-splitters
