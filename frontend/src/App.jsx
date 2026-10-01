@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import './App.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL !== undefined ? import.meta.env.VITE_API_URL : '';
 
 function App() {
   const [query, setQuery] = useState('');
@@ -16,6 +16,7 @@ function App() {
   const [success, setSuccess] = useState(null);
   const [isIndexed, setIsIndexed] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+  const [isBackendOnline, setIsBackendOnline] = useState(true);
 
   // Upload
   const [showUploader, setShowUploader] = useState(false);
@@ -31,9 +32,12 @@ function App() {
       if (res.ok) {
         const data = await res.json();
         setIsIndexed(data.is_indexed);
+        setIsBackendOnline(true);
+      } else {
+        setIsIndexed(false);
       }
-    } catch (err) {
-      console.error('Status check failed', err);
+    } catch {
+      setIsBackendOnline(false);
     } finally {
       setIsChecking(false);
     }
@@ -226,6 +230,13 @@ function App() {
           )}
         </AnimatePresence>
 
+        {/* Backend offline warning */}
+        {!isBackendOnline && (
+          <div className="error-pill" style={{ position: 'static', marginBottom: '1.5rem', width: 'auto' }}>
+            <AlertCircle size={16} /> Backend server is not running on port 8000. Please run <code>./run.sh</code> or <code>python app.py</code>.
+          </div>
+        )}
+
         {/* Chat Input */}
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
@@ -240,15 +251,16 @@ function App() {
               <input
                 type="text"
                 placeholder={
+                  !isBackendOnline ? 'Backend offline: Please start server on port 8000...' :
                   isChecking ? 'Checking index…' :
                   isIndexed ? 'What would you like to know?' :
                   'Upload and index documents first…'
                 }
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                disabled={loading || !isIndexed || isChecking}
+                disabled={loading || !isIndexed || isChecking || !isBackendOnline}
               />
-              <button type="submit" className="glow-btn" disabled={loading || !query.trim() || !isIndexed}>
+              <button type="submit" className="glow-btn" disabled={loading || !query.trim() || !isIndexed || !isBackendOnline}>
                 {loading ? <Loader2 className="animate-spin" /> : <Send size={20} />}
               </button>
             </div>
