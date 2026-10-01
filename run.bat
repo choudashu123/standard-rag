@@ -70,7 +70,7 @@ echo   Frontend: http://localhost:5173
 echo ==================================================
 
 REM Start Backend in separate background window
-start "Standard RAG Backend" cmd /k "call .venv\Scripts\activate.bat && uvicorn backend.app:app --host 0.0.0.0 --port 8000"
+start "Standard RAG Backend" cmd /k "call .venv\Scripts\activate.bat && uvicorn app:app --host 0.0.0.0 --port 8000"
 
 REM Wait 2 seconds for backend to initialize
 timeout /t 2 /nobreak >nul

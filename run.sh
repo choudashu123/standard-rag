@@ -76,7 +76,7 @@ trap cleanup INT TERM EXIT
 
 # 7. Start Backend Server
 echo "🚀 Starting Backend API on http://localhost:8000..."
-.venv/bin/uvicorn backend.app:app --host 0.0.0.0 --port 8000 &
+.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
 # Wait briefly for backend to initialize

@@ -27,16 +27,12 @@ from langchain_core.prompts import ChatPromptTemplate
 # ---------------------------------------------------------------------------
 # Config & Paths
 # ---------------------------------------------------------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
-
-# Load environment variables from repo root or local directory
-load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 load_dotenv()
 
-CHROMA_DIR = os.path.join(PROJECT_ROOT, "chroma_db")
-UPLOAD_DIR = os.path.join(PROJECT_ROOT, "data", "uploads")
-FRONTEND_DIST = os.path.join(PROJECT_ROOT, "frontend", "dist")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CHROMA_DIR = os.path.join(BASE_DIR, "chroma_db")
+UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads")
+FRONTEND_DIST = os.path.join(BASE_DIR, "frontend", "dist")
 
 os.makedirs(CHROMA_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -138,19 +134,35 @@ def load_and_index_files(file_paths: List[str]):
     for path in file_paths:
         try:
             if path.lower().endswith(".pdf"):
-                docs.extend(PyPDFLoader(path).load())
+                loaded = PyPDFLoader(path).load()
+                # Filter out blank / empty pages
+                loaded = [d for d in loaded if d.page_content and d.page_content.strip()]
+                docs.extend(loaded)
             elif path.lower().endswith(".txt"):
-                docs.extend(TextLoader(path, encoding="utf-8").load())
+                loaded = TextLoader(path, encoding="utf-8").load()
+                loaded = [d for d in loaded if d.page_content and d.page_content.strip()]
+                docs.extend(loaded)
         except Exception as exc:
             print(f"⚠️  Error loading {path}: {exc}")
 
     if not docs:
-        print("No valid documents to index.")
-        return
+        raise HTTPException(
+            status_code=400,
+            detail="No readable text found in uploaded document(s). Please ensure your PDF or TXT contains selectable text (not scanned images or empty pages).",
+        )
 
     print(f"📄 Indexing {len(docs)} document pages/sections …")
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = splitter.split_documents(docs)
+
+    # Filter out empty chunks
+    splits = [s for s in splits if s.page_content and s.page_content.strip()]
+
+    if not splits:
+        raise HTTPException(
+            status_code=400,
+            detail="Document(s) did not produce any valid text chunks to index.",
+        )
 
     vs = get_vectorstore()
     vs.add_documents(splits)
@@ -217,15 +229,26 @@ async def status():
 
 @app.post("/admin/upload")
 async def upload_files(files: List[UploadFile] = File(...)):
-    saved = []
-    for file in files:
-        dest = os.path.join(UPLOAD_DIR, file.filename)
-        with open(dest, "wb") as buf:
-            shutil.copyfileobj(file.file, buf)
-        saved.append(dest)
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided for upload.")
 
-    load_and_index_files(saved)
-    return {"status": "success", "files": [os.path.basename(p) for p in saved]}
+    saved = []
+    try:
+        for file in files:
+            dest = os.path.join(UPLOAD_DIR, file.filename)
+            with open(dest, "wb") as buf:
+                shutil.copyfileobj(file.file, buf)
+            saved.append(dest)
+
+        load_and_index_files(saved)
+        return {"status": "success", "files": [os.path.basename(p) for p in saved]}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process and index documents: {str(exc)}",
+        )
 
 
 @app.post("/admin/clear")
@@ -270,7 +293,7 @@ if os.path.isdir(FRONTEND_DIST):
     app.mount("/app", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
 
 # ---------------------------------------------------------------------------
-# Direct run: python -m backend.app
+# Direct run: python app.py
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn

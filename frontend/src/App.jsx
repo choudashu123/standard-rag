@@ -83,6 +83,7 @@ function App() {
     selectedFiles.forEach((f) => formData.append('files', f));
     try {
       const res = await fetch(`${API_URL}/admin/upload`, { method: 'POST', body: formData });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setSuccess(`${selectedFiles.length} document(s) indexed!`);
         setSelectedFiles([]);
@@ -90,7 +91,7 @@ function App() {
         checkStatus();
         setTimeout(() => setShowUploader(false), 2000);
       } else {
-        throw new Error('Upload failed.');
+        throw new Error(data.detail || 'Upload failed. Please ensure the document contains readable text.');
       }
     } catch (err) {
       setError(err.message);

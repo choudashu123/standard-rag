@@ -18,7 +18,7 @@ The application is structured into two core layers:
 └───────────────────────────▲─────────────────────────────┘
                             │ HTTP / JSON (REST)
 ┌───────────────────────────▼─────────────────────────────┐
-│                 Backend (FastAPI - backend/app.py)          │
+│                 Backend (FastAPI - app.py)              │
 │   • Document Loader & Character/Recursive Splitter      │
 │   • Google Gemini Embeddings (models/gemini-embedding)  │
 │   • ChromaDB Persistent Vector Store                    │
@@ -28,7 +28,7 @@ The application is structured into two core layers:
 ```
 
 - **Frontend (Presentation Layer):** React + Vite single-page application styled with a responsive dark glassmorphism theme and smooth animations.
-- **Backend (Orchestration Layer):** A unified FastAPI server ([backend/app.py](file:///Users/ashutoshchoudhary/pro/standard-rag/backend/app.py)) managing document ingestion, chunking, indexing, and context-grounded retrieval.
+- **Backend (Orchestration Layer):** A unified, single-file FastAPI server ([app.py](file:///Users/ashutoshchoudhary/pro/standard-rag/app.py)) managing document ingestion, chunking, indexing, and context-grounded retrieval.
 - **Vector Intelligence:** **ChromaDB** persists vector indices locally under `chroma_db/`.
 - **LLM & Embeddings:** Powered by **Google Gemini 2.5 Flash** for synthesis and **Google Generative AI Embeddings** (`gemini-embedding-001`).
 
@@ -218,7 +218,7 @@ The launch script will automatically:
 ### Backend (Render / Railway / Fly.io)
 1. **Root Directory:** Repository root (`.`)
 2. **Build Command:** `pip install -r requirements.txt`
-3. **Start Command:** `uvicorn backend.app:app --host 0.0.0.0 --port $PORT`
+3. **Start Command:** `uvicorn app:app --host 0.0.0.0 --port $PORT`
 4. **Environment Variables:** Set `GOOGLE_API_KEY` to your Gemini key.
 5. **Persistent Storage (Optional):** Mount a volume at `/chroma_db` if you want indexed documents to survive restarts.
 
