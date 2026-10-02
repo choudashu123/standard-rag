@@ -1,5 +1,7 @@
 # Standard RAG — Project Details & Documentation
-
+launch guide: https://docs.google.com/document/d/1CxFiXCFJ9fQrdtglGS02L89qwL2l2LuFxJROWuEvsL4/edit?usp=sharing
+solution document: https://docs.google.com/document/d/16w9YrzjUcPldqFSBeMNK5a8Kzbjj8vCyG3_xtmY9BuQ/edit?usp=sharing
+video: https://youtu.be/zUqXiW_VSPI?si=fTNfpbAgacQl_ned
 ## 1. Project Overview
 **Standard RAG** is a streamlined, production-ready Retrieval-Augmented Generation (RAG) platform designed to convert documents (PDF, TXT) into a queryable knowledge base. Combining modern LLMs with local semantic search, the system delivers grounded, factual answers to user questions while eliminating hallucinations.
 
